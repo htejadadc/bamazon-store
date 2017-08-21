@@ -1,14 +1,5 @@
-var mysql = require("mysql");
 var inquirer = require("inquirer");
-
-var connection = mysql.createConnection({
-	host     : "localhost",
-	user     : "root",
-	password : "",
-	database : "bamazon"
-});
-
-connection.connect();
+var connection = require("./connection.js");
 
 var resultsManager = new Promise(function(resolve, rejected) {
 	connection.query("SELECT * FROM products", function(err, res) {			
@@ -16,6 +7,20 @@ var resultsManager = new Promise(function(resolve, rejected) {
 		resolve(res);
 	});
 });
+
+function updateDepartment() {
+	
+	var query = "SELECT department_name, SUM(product_sales) AS total_sales FROM products GROUP BY department_name";
+	connection.query(query, function(err, res) {		
+		if (err) throw err;		
+		for(var i = 0; i < res.length; i++) {				
+			connection.query("UPDATE departments SET over_head_costs=? WHERE department_name=?", [100, res[i].department_name], function(err){
+				if (err) throw err;											
+			});	
+		};	
+		addProduct();
+	});
+};
 
 function managerPlatform() {
 	inquirer.prompt([
@@ -42,7 +47,7 @@ function managerPlatform() {
 				break;
 			case "Add to Inventory": addInventory();
 				break;
-			case "Add New Product": addProduct();			
+			case "Add New Product": updateDepartment();			
 		}
 	});
 };
@@ -108,37 +113,45 @@ function updateStock(quant, stock, id) {
 };
 
 function addProduct() {
-	inquirer.prompt([
-		{
-		type: "input",
-		message: "Please enter the Description Name of the new Item: ",
-		name: "itemName"
-		},
-		{
-		type: "input",
-		message: "Please enter the Department of the new Item: ",
-		name: "itemDepart"
-		},
-		{
-		type: "input",
-		message: "Please enter the Price of new Item: ",
-		name: "itemPrice"
-		},
-		{
-		type: "input",
-		message: "Please enter the Quantity of new Item: ",
-		name: "itemQuant"
-		}])
-	.then(function (answer) {
-		connection.query("INSERT INTO products SET ?", {
-			product_name: answer.itemName, 
-			department_name: answer.itemDepart, 
-			price: answer.itemPrice, 
-			stock_quantity: answer.itemQuant
-		}, function (err, res) {
-			if (err) throw err;
-			console.log("Product added to Store successfully!");
-			managerPlatform();
+	connection.query("SELECT department_name FROM departments", function(err, res) {
+		if (err) throw err;
+		var choicesData = [];
+		for (var i = 0; i < res.length; i++) {
+			choicesData.push(res[i].department_name);
+		}		
+		inquirer.prompt([
+			{
+			type: "input",
+			message: "Please enter the Description Name of the new Item: ",
+			name: "itemName"
+			},
+			{
+			type: "list",
+			message: "Please choose the Department of the new Item: ",
+			name: "itemDepart",
+			choices: choicesData
+			},
+			{
+			type: "input",
+			message: "Please enter the Price of new Item: ",
+			name: "itemPrice"
+			},
+			{
+			type: "input",
+			message: "Please enter the Quantity of new Item: ",
+			name: "itemQuant"
+			}])
+		.then(function (answer) {
+			connection.query("INSERT INTO products SET ?", {
+				product_name: answer.itemName, 
+				department_name: answer.itemDepart, 
+				price: answer.itemPrice, 
+				stock_quantity: answer.itemQuant
+			}, function (err, res) {
+				if (err) throw err;
+				console.log("Product added to Store successfully!");
+				managerPlatform();
+			});
 		});
 	});
 };

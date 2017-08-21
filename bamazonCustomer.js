@@ -1,16 +1,6 @@
-var mysql = require("mysql");
 var inquirer = require("inquirer");
-
-var connection = mysql.createConnection({
-	host     : "localhost",
-	user     : "root",
-	password : "",
-	database : "bamazon"
-});
- 
+var connection = require("./connection.js"); 
 var cartUpdate = 0;
-
-connection.connect();
 
 var resultsCustomer = new Promise(function(resolve, rejected) {
 	connection.query("SELECT * FROM products", function(err, res) {			
@@ -31,12 +21,14 @@ function openCart(){
 	});
 };
 function closeCart() {
-	console.log("The Total Value of your purchase is: $" + cartUpdate);
+	console.log("The Total Value of your purchase is: $" + cartUpdate.toFixed(2));
 };
 
-function customerDisplay(squant, price) {
+function customerDisplay(squant, price, id) {
+
 	var subTotal = squant * price;
 	cartUpdate = cartUpdate + subTotal;
+
 	console.log("The Value of your purchase is: $" + subTotal + "\n");
 	inquirer.prompt([{
 		type: "confirm",
@@ -50,16 +42,18 @@ function customerDisplay(squant, price) {
 		} else {
 			closeCart();
 		}
-	});
+	});	
 };
 
-function updateStock(quant, stock, id, price) {
-
+function updateStockandsales(quant, stock, id, price, sales) {
+	
 	var stockUpdate = stock - quant;
-	connection.query("UPDATE products SET stock_quantity=? WHERE item_id=?", [stockUpdate, id], function(err){
+	var salesUpdate = sales + (quant * price);
+	
+	connection.query("UPDATE products SET stock_quantity=?, product_sales=? WHERE item_id=?", [stockUpdate, salesUpdate, id], function(err){
 		if (err) throw err;
 		console.log("Order added to your cart successfully!");
-		customerDisplay(quant, price);
+		customerDisplay(quant, price, id);
 	});
 };
 
@@ -87,8 +81,8 @@ function orderPlatform() {
 			if (finder[0].stock_quantity < answer.quantity) {
 				console.log("Insufficient quantity!");
 				orderPlatform();
-			} else {
-				updateStock(parseQt, finder[0].stock_quantity, finder[0].item_id, finder[0].price);
+			} else {				
+				updateStockandsales(parseQt, finder[0].stock_quantity, finder[0].item_id, finder[0].price, finder[0].product_sales);
 			}
 
 		});		
